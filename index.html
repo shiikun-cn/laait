@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hinäzuma Läitu</title>
+  <!-- 引入Kiineza Laaitu字体 -->
+  <style>
+    @font-face {
+      font-family: 'KiinezaLaaitu';
+      src: url('fonts/Kiineza_Laaitu.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+    :root {
+        --primary: #318cd3;
+        --secondary: #ebc185;
+        --background: #07080b;
+        --warning: #fc2537;
+    }
+
+    body {
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: 'KiinezaLaaitu', sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .screen {
+      flex: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    /* 顶部角色图像区域*/
+    #image-area {
+      position: relative;
+      height: 300px;
+      overflow: hidden;
+    }
+    #image-area img {
+      max-height: 100%;
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      user-select: none;
+      pointer-events: none;
+    }
+    /* 中间打字内容区 */
+    #typing-area {
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #current-word {
+      font-size: 5.5rem;
+    }
+
+    #current-word.countdown {
+      font-size: 6rem;
+    }
+
+
+    #current-word span.correct {
+      color: var(--primary);
+    }
+    #translation {
+      font-size: 2rem;
+      color: #666;
+      margin-top: 10px;
+    }
+    /* 小字倒计时 */
+    #timer-small {
+      color: var(--secondary);
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+    }
+    #timer-small .timer-icon { font-size: 1.4rem; margin-right: 0.5rem; }
+    #timer-small .timer-num  { font-size: 2.2rem; }
+    
+
+    /* 底部键盘反馈区 */
+    .keyboard-feedback {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      padding: 1rem;
+    }
+    .key {
+      background: #222;
+      padding: 1.2rem 0.5rem;
+      text-align: center;
+      border-radius: 4px;
+      position: relative;
+      cursor: default;
+    }
+    .key::after {
+      content: attr(data-kaasa);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      top: 0.8rem;
+      font-size: 2.5em;
+      color: var(--secondary);
+      opacity: 0.8;
+    }
+    .key.active { 
+      background: var(--primary);
+    }
+    .key.active::after {
+      color: var(--background);
+    }
+    .key.wrong  { 
+      background: var(--warning);
+    }
+    .key.wrong::after {
+      color: var(--background);
+    }
+    .key.disabled, .key[data-kaasa=""] {
+      background: #151515;
+    }
+
+    /* 选键位屏幕 */
+    #select-layout {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+    #select-layout h2    { 
+      font-weight: normal;
+      color: #fff; 
+      font-size: 2.5rem;
+    }
+    .layout-option {
+      margin: 15px;
+      cursor: pointer;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .layout-option:hover { border: 2px solid var(--secondary); }
+
+    /* 结果屏幕 */
+    #result-screen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem 5rem;
+      padding: 0.5rem;
+      z-index: 20;
+    }
+
+    #result-character {
+      width: auto;                /* 根据需要调整尺寸 */
+      height:  300px;
+      flex-shrink: 0;
+    }
+
+
+
+    #result-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #result-screen h1    { 
+      font-weight: normal;
+      color: #fff; 
+      font-size: 2.8rem;
+    }
+    
+    #result-screen .stats {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    /* 数字部分更大 */
+    #result-screen .stats .value {
+      font-size: 2.4rem;
+    }
+    
+
+    #result-screen button {
+      margin-top: 30px;
+      padding: 6px 16px;
+      font-size: 1.6rem;
+      cursor: pointer;
+      background: #aaa;
+      color: var(--background);
+      border: none;
+      border-radius: 6px;
+      font-family: 'KiinezaLaaitu';
+    }
+    #result-screen button ::after {
+      bottom:1rem;
+    }
+    #result-screen button:hover { background: var(--primary); }
+  </style>
+</head>
+<body>
+  <div id="select-layout">
+    <h2>helAb</h2>
+    <div class="layout-option" data-layout="alternate">
+      <img src="layouts/alternate.png" alt="Ez" width="300">
+    </div>
+    <div class="layout-option" data-layout="double">
+      <img src="layouts/double.png" alt="El" width="300">
+    </div>
+  </div>
+
+  <div class="screen" id="game-screen" style="visibility: hidden;">
+    <div id="image-area">
+      <img id="character" src="images/character_idle.png" alt="Kävilak">
+    </div>
+    <div id="typing-area">
+      <div id="current-word">sozanAm</div>
+      <div id="translation">trGnslKSyn</div>
+      <div id="timer-small">50</div>
+    </div>
+    <div class="keyboard-feedback" id="keyboard"></div>
+  </div>
+
+
+
+  <div id="result-screen" style="display: none;">
+    <img id="result-character" alt="Siköm" src="" />
+    <div id="result-text">
+      <h1 id="rank">sikOm</h1>
+      <div id="wpm" class="stats">kUxik/a sUz' 0</div>
+      <div id="accuracy" class="stats">bEsut/a sUz' 0</div>
+      <div id="final-score" class="stats">tenIl/a sUz' 0</div>
+      <button id="restart">zed/e sikAs</button>
+  </div>
+
+  <!-- 背景音乐，loop 循环播放 -->
+  <audio id="bg-music" src="audio/bg-music.ogg" loop preload="auto"></audio>
+
+  <!-- 音效：正确、错误、单词完成 -->
+  <audio id="sfx-correct" src="audio/correct.ogg" preload="auto"></audio>
+  <audio id="sfx-wrong"   src="audio/wrong.ogg"   preload="auto"></audio>
+  <audio id="sfx-done"    src="audio/done.ogg"    preload="auto"></audio>
+
+  <!-- 倒计时音效，长度3秒 -->
+  <audio id="countdown-sound" src="audio/countdown.mp3" preload="auto"></audio>
+
+  <!-- 积分为正时的结束音乐 -->
+  <audio id="end-positive-sound" src="audio/end-positive.mp3" preload="auto"></audio>
+
+
+  <script>
+    
+    // --------- 配置区 ---------
+    const ROUND_TIME     = 72;   // 游戏时长（秒）
+    const BONUS_SCORE     = 1728;
+    const PUNISH_SCORE     = 1296;
+    const COUNTDOWN_TIME = 3;    // 倒计时长度（秒）
+    const wordList = [
+      {text: "zIxevik", translation: "Fin"},
+      {text: "zIxetOk", translation: "Fik"},
+      {text: "zisIxak", translation: "mGgnit, mGgnetik"},
+      {text: "zetavOz", translation: "tU sit"},
+      {text: "zed", translation: "simily, lJkwJz, ripetitiv, xygen, xolsX, tU"},
+      {text: "zanatet", translation: "tU puS"},
+      {text: "zanAm", translation: "lGNgwiq"},
+      {text: "zan", translation: "lKty, fjUcy, xyhed, frHnt"},
+      {text: "zamatet", translation: "tU pul"},
+      {text: "zAmam", translation: "tJm"},
+      {text: "zam", translation: "xYli/y, pAst, bihJnd, rQ, bGk"},
+      {text: "zAkAs", translation: "jUnivYs"},
+      {text: "zahikAlil", translation: "wJt"},
+      {text: "xu", translation: "sX"},
+      {text: "xoz", translation: "sevyn"},
+      {text: "xomOz", translation: "sHn"},
+      {text: "xomAm", translation: "stA, xystrynomikyl xHbqekt"},
+      {text: "xol", translation: "xKt"},
+      {text: "xokAs", translation: "Vy mHVY plGnit"},
+      {text: "xohUl", translation: "mUn"},
+      {text: "xobAb", translation: "komit, mIti/y"},
+      {text: "xo", translation: "xGnd"},
+      {text: "xIn", translation: "tU hGv, tU kyntKn"},
+      {text: "xikOl", translation: "bI, bI xIkwyl tU"},
+      {text: "xi", translation: "xO, xJVy"},
+      {text: "xez", translation: "won"},
+      {text: "xe", translation: "bHt, xeksept, xHVy Vyn"},
+      {text: "xE", translation: "xymKziN, xHnbilIvybyl, xGbsylUtli, [xintyqekSyn]"},
+      {text: "xAn", translation: "tU biloN tU"},
+      {text: "xam", translation: "FiN, xJtym"},
+      {text: "xa", translation: "xysHmpSyn, bI kyndiSynz fO, xif xit hGpynz Ven"},
+      {text: "vUxan", translation: "dog"},
+      {text: "vulAt", translation: "flO, plKn, flGt"},
+      {text: "vU", translation: "[pAtikyl fO nWn klOz xov xGbsylUtiv kKs]"},
+      {text: "vOz", translation: "tU put, tU lXkKt, tU kIp, tU prytekt"},
+      {text: "vOxis", translation: "sWnd, spIk, vLs, tOk, lWd, tU sK, tU sWnd"},
+      {text: "vOsut", translation: "bGd"},
+      {text: "vO", translation: "[pAtikyl fO nWn klOz xov xYgytiv kKs]"},
+      {text: "visOt", translation: "cJld, kid"},
+      {text: "visomOz", translation: "wOm"},
+      {text: "vikusAl", translation: "xGsid, sW/y"},
+      {text: "vikIn", translation: "sGnd"},
+      {text: "vikakIn", translation: "grAs"},
+      {text: "vik", translation: "smOl, xy bit, xy lityl, tU SriNk"},
+      {text: "vihUl", translation: "drop"},
+      {text: "vEkut", translation: "dJrekSyn, xGNgyl, vekty"},
+      {text: "vAtik", translation: "pAtikyl, xelimentyri pAtikyl, mJkrX"},
+      {text: "vatAl", translation: "tU giv, tU spred, tU pAs, tU diskArd, sHbtrGkSyn[mGF]"},
+      {text: "vakEl", translation: "tU brKk, tU kHt, tU split"},
+      {text: "vA", translation: "[pAtikyl fO xytribjytiv klOz]"},
+      {text: "tOtet", translation: "tU hit"},
+      {text: "tot", translation: "fut, leg"},
+      {text: "tonAl", translation: "sJd, bisJd, nQbJ, bI wiV"},
+      {text: "tOkIn", translation: "mWntin"},
+      {text: "tOkakIn", translation: "trI"},
+      {text: "tokAg", translation: "reptJlz"},
+      {text: "tOk", translation: "big, tU swel"},
+      {text: "tOhUl", translation: "lKk"},
+      {text: "tikAl", translation: "pW/y, stroN, pW/yfyl"},
+      {text: "tigAxun", translation: "xHVy, difrynt"},
+      {text: "tetezA", translation: "tU hXld"},
+      {text: "tet", translation: "hGnd, tU tHc"},
+      {text: "tenIl", translation: "tU get, tU gKn, tU risIv, xydiSyn [mGF]"},
+      {text: "tegakIn", translation: "fiNgynKl"},
+      {text: "teg", translation: "fiNgy, tU pLnt"},
+      {text: "tanOs", translation: "hGpinys, fHn, tU plK"},
+      {text: "t", translation: "tU wOk, tU mUv, bI gX/iN tU dU"},
+      {text: "sUz", translation: "nHmbY, xymWnt, diqit, meZymynt, tU kWnt, tU meZy, tU kwontifJ"},
+      {text: "suvIt", translation: "swIt, kGndi"},
+      {text: "sumEl", translation: "hWs, hXm, tU lJv"},
+      {text: "sozanAm", translation: "wYd, mOfIm"},
+      {text: "sOxik", translation: "slX"},
+      {text: "sovOxis", translation: "fXnIm"},
+      {text: "sOt", translation: "hjUmyn, mGn, pYsyn"},
+      {text: "sonI", translation: "smel"},
+      {text: "somOz", translation: "hot, hIt"},
+      {text: "somAz", translation: "grGviti, xytrGkSyn"},
+      {text: "sokOm", translation: "kXld"},
+      {text: "sohUl", translation: "wet"},
+      {text: "sobA", translation: "solt"},
+      {text: "sIxan", translation: "wJ/y, lJn, bOdy, hP, tU liNk"},
+      {text: "sivOxis", translation: "sentyns, stKtmynt"},
+      {text: "sIsut", translation: "grUp, klHsty, bHnc, xykjUmjulKSyn, tU gGVy, tU kAlekt"},
+      {text: "silokam", translation: "simpyl, xIzi"},
+      {text: "silAxit", translation: "kGrikty, lety, glif"},
+      {text: "silan", translation: "nekst"},
+      {text: "sil", translation: "fjU"},
+      {text: "sikOmezA", translation: "drIm"},
+      {text: "sikOm", translation: "slIp, klXs, stop"},
+      {text: "sikAs", translation: "wKk, xXpyn, stAt"},
+      {text: "saz", translation: "xOl"},
+      {text: "sAxiv", translation: "mHni, welF, biloNiNz, preSys metyl"},
+      {text: "sAxin", translation: "wKv, flHkcU/KSyn, SKk, vJbrKSyn, pHls, bliNk, sJn wKv"},
+      {text: "salIvus", translation: "buk"},
+      {text: "sakAn", translation: "fiS"},
+      {text: "sagAs", translation: "tU sYc, tU fJnd, tU hHnt"},
+      {text: "s", translation: "xytempt, tU trJ"},
+      {text: "nOkam", translation: "stik"},
+      {text: "nOk", translation: "loN"},
+      {text: "nOhUl", translation: "rivY"},
+      {text: "nIxan", translation: "kGt"},
+      {text: "nI", translation: "nXz, tU smel"},
+      {text: "nAz", translation: "fA, distynt"},
+      {text: "naz", translation: "VP"},
+      {text: "natenIl", translation: "stHdi, xeqUkKSyn, tU stHdi, tU lYn, tU get noliq"},
+      {text: "nAmam", translation: "lKbyl"},
+      {text: "nAm", translation: "nKm"},
+      {text: "nAl", translation: "jU [plOryl]"},
+      {text: "nal", translation: "jU [siNgjuly]"},
+      {text: "nA", translation: "VGt, VXz"},
+      {text: "n", translation: "noliq, tU nX, bI xKbyl tU"},
+      {text: "mOzil", translation: "red"},
+      {text: "mOzez", translation: "rWnd, sYkyl, sfQ"},
+      {text: "mOz", translation: "fJ/y, flKm, tU bYn"},
+      {text: "moz", translation: "sHmwP"},
+      {text: "mot", translation: "brKn"},
+      {text: "mom", translation: "sHmFiN"},
+      {text: "mol", translation: "sHmwon"},
+      {text: "mIluk", translation: "brest"},
+      {text: "mil", translation: "xJ, tU sI, tU woc"},
+      {text: "mik", translation: "SOt"},
+      {text: "mezUl", translation: "rP, not xofHn"},
+      {text: "mazIv", translation: "bWndyri, xenkWnty, xXvylGpiN, tU mIt, tU kAntGkt, tU xintysekt"},
+      {text: "mAz", translation: "nQ, tU stik, tU pKst, tU xytrGkt"},
+      {text: "maz", translation: "hQ"},
+      {text: "matolIxos", translation: "pirI/Adik, xityrytiv, lUp, frGktyl, self_refryns"},
+      {text: "masIn", translation: "mySIn"},
+      {text: "masil", translation: "njU"},
+      {text: "manal", translation: "wI [fYst, sekHnd]"},
+      {text: "mamoz", translation: "wIk"},
+      {text: "mamOz", translation: "dK"},
+      {text: "mamAn", translation: "fjUcy"},
+      {text: "mAm", translation: "mHVY"},
+      {text: "malAv", translation: "lHv"},
+      {text: "mAl", translation: "wI [fYst]"},
+      {text: "mal", translation: "xJ"},
+      {text: "maken", translation: "sIzyn"},
+      {text: "makehikAl", translation: "nJt"},
+      {text: "makAs", translation: "jQ"},
+      {text: "makak", translation: "wI [fYst, FYd]"},
+      {text: "mahUl", translation: "mHnF"},
+      {text: "magAlan", translation: "lKtyst, xGt lAst"},
+      {text: "magAlam", translation: "xYli/yst, xGt fYst"},
+      {text: "magAl", translation: "xXld"},
+      {text: "mA", translation: "Vis, VIz"},
+      {text: "m", translation: "FOt, tU FiNk, tU memyri, tU mis"},
+      {text: "lUgAk", translation: "twelv tU Vy pW/y xov twelv"},
+      {text: "lU", translation: "[ximperytiv mUd, ximplJd xGbsylUtiv kKs tU bI [jU]]"},
+      {text: "lOxad", translation: "rXd, pGF, wK, pGsiq, trGk, xObit"},
+      {text: "lokam", translation: "wYk, proqekt, tU mKk, tU krI/Kt, tU xistGbliS"},
+      {text: "lOgAk", translation: "twelv tU Vy pW/y xov siks"},
+      {text: "lO", translation: "[ximperytiv mUd, ximplJd xYgytiv kKs tU bI [jU]]"},
+      {text: "lIvus", translation: "pKpy, pKq"},
+      {text: "lIgAk", translation: "twelv tU Vy pW/y xov twenti fO"},
+      {text: "lIdaz", translation: "kiN, lIdy, tU bI xin cArq"},
+      {text: "lEgAk", translation: "twelv tU Vy pW/y xov xKtIn"},
+      {text: "laz", translation: "botym, dWn"},
+      {text: "lAxit", translation: "rJtiN, xorFAgrHfI, kGligryfi, tU rJt"},
+      {text: "lAxek", translation: "lJk, xyprISi/Kt, xydmJ/y, prKz"},
+      {text: "lavOz", translation: "tU lJ dWn"},
+      {text: "lat", translation: "tU fOl"},
+      {text: "lanAz", translation: "dIp"},
+      {text: "lamAz", translation: "SGlX"},
+      {text: "lakIn", translation: "xYF"},
+      {text: "lahukUs", translation: "botym klXVz, pAnts, trWsyz"},
+      {text: "lAgAk", translation: "twelv tU Vy pW/y xov FYti"},
+      {text: "labaz", translation: "sWF"},
+      {text: "l", translation: "let, mKk"},
+      {text: "kuzUl", translation: "brXkyn, xHnbGlynst, [swP wYdz]"},
+      {text: "kUxik", translation: "fAst"},
+      {text: "kUxagat", translation: "bHg, xinsekt"},
+      {text: "kutam", translation: "fUd"},
+      {text: "kutakIn", translation: "tUF, tU bJt"},
+      {text: "kut", translation: "mWV, tU xIt, tU driNk"},
+      {text: "kusAl", translation: "rotyn"},
+      {text: "kulUm", translation: "bXt, vQkyl, xelivKty, kynvK/y belt, tU trGnsport"},
+      {text: "kulOs", translation: "fGbrik"},
+      {text: "kulEz", translation: "krKzi, strKnq, wQd"},
+      {text: "kovAs", translation: "hory, tU fQ"},
+      {text: "kov", translation: "nJn"},
+      {text: "kOsOt", translation: "sXl, gXst"},
+      {text: "kos", translation: "xilevyn"},
+      {text: "kon", translation: "ten"},
+      {text: "komUg", translation: "grKn, sQri/ylz"},
+      {text: "kOmez", translation: "hXl, holX, kKv, pit, dipreSyn"},
+      {text: "kom", translation: "siks"},
+      {text: "kOm", translation: "tU vGniS, tU disypQ"},
+      {text: "kOlab", translation: "tU kX/opyrKt, tU mGc, tU kAmbJn, tU miks"},
+      {text: "kOkIn", translation: "tU frIz"},
+      {text: "kIxut", translation: "xAt, xIsFetik, xAtistik, dekrytiv, bjUtifyl, priti, kjUt"},
+      {text: "kisOk", translation: "prinsipyl, rUl, strHkcy, sistym, lO"},
+      {text: "kIsil", translation: "lJt"},
+      {text: "kInil", translation: "jelX"},
+      {text: "kInez", translation: "kwodrilGtyryl, skwP, rombys"},
+      {text: "kIn", translation: "stXn, solid, tU sylidifJ"},
+      {text: "kimOt", translation: "fIliN, ximXSyn, tU fIl"},
+      {text: "kIkulUm", translation: "kA, bHs, trKn"},
+      {text: "kik", translation: "xQ, tU lisyn"},
+      {text: "kIhUl", translation: "xJs"},
+      {text: "kIgAl", translation: "hevi"},
+      {text: "kI", translation: "jes, xXkK"},
+      {text: "kez", translation: "nXwP"},
+      {text: "kevOxis", translation: "kwJ/yt, sJlyns"},
+      {text: "kEvil", translation: "trGnspGrynt"},
+      {text: "kEvez", translation: "trJ/GNgyl"},
+      {text: "kEvakEl", translation: "tU dispYs"},
+      {text: "kEv", translation: "wind, xP, vGkjUm"},
+      {text: "kev", translation: "FrI"},
+      {text: "kesohUl", translation: "drJ"},
+      {text: "kes", translation: "fJv"},
+      {text: "kenevim", translation: "kwOty"},
+      {text: "ken", translation: "fO"},
+      {text: "kem", translation: "zQrX, nHFiN"},
+      {text: "kelevim", translation: "hAf"},
+      {text: "kEkut", translation: "tU brIV"},
+      {text: "kekut", translation: "tU spit"},
+      {text: "kEkulUm", translation: "plKn"},
+      {text: "kekOmez", translation: "bHlq, prytrUZyn"},
+      {text: "kEkIn", translation: "smXk"},
+      {text: "kEhUl", translation: "fog"},
+      {text: "kehikAlil", translation: "blGk"},
+      {text: "kehikAl", translation: "dAk"},
+      {text: "kehabuk", translation: "tiltid [not horizontyl]"},
+      {text: "kE", translation: "nX"},
+      {text: "kazIt", translation: "frUt"},
+      {text: "kAvilak", translation: "xy grKSys jHN kiN xov Vy kHntri bGk xin Vy histyri, wYSipt xGz xy god bJ lKty qenyrKSynz"},
+      {text: "kavAl", translation: "tU cKnq, tU bikHm, bI xIkwyl tU [mGF]"},
+      {text: "katAn", translation: "nJf, tU cop, tU slGS"},
+      {text: "kAsez", translation: "stA_SKpt, SAp, FOni, prikli"},
+      {text: "kAs", translation: "xegzistyns, lJf, liviN, tU xegzist, tU SX xHp, Vy kHntri xGnd Vy plGnit nKm [kAsH]"},
+      {text: "kalIvus", translation: "lIf"},
+      {text: "kalAd", translation: "bodi"},
+      {text: "kakInil", translation: "grIn"},
+      {text: "kakIn", translation: "plGnt"},
+      {text: "kAk", translation: "VK"},
+      {text: "kak", translation: "hI, SI, xit"},
+      {text: "kabAn", translation: "kyntKny, boks, bGg, bHkit, botyl, tU kyntKn, tU rGp"},
+      {text: "kA", translation: "[pAtikyl fO rigrUpiN mHltipyl modifJ/yz]"},
+      {text: "k", translation: "posybiliti, probybiliti, mKbI, mK, kGn"},
+      {text: "hUvakEl", translation: "tU disolv"},
+      {text: "hUsil", translation: "hAd"},
+      {text: "hUlsez", translation: "tU dig"},
+      {text: "hUlez", translation: "xAk, kYv, kresynt"},
+      {text: "hUl", translation: "wOty"},
+      {text: "hukUs", translation: "klXVz"},
+      {text: "hUkIn", translation: "sLl, dYt, pWdy, pKst"},
+      {text: "hUgAl", translation: "soft"},
+      {text: "hUbEsut", translation: "tU woS"},
+      {text: "hOxuh", translation: "wK, meFyd, mInz, mHltiplikKSyn [mGF]"},
+      {text: "hol", translation: "hAt"},
+      {text: "hogOlam", translation: "trGS"},
+      {text: "hogOl", translation: "dYti"},
+      {text: "hivEnut", translation: "xGktiviti, festivyl, serimyni, xivent, plGn"},
+      {text: "hinAzum", translation: "xilektrisiti, xeliktronik, FHndy"},
+      {text: "himEz", translation: "ximiq, pikcy, fXtX, tU pKnt"},
+      {text: "hilakakIn", translation: "flW/Y"},
+      {text: "hil", translation: "kHlY"},
+      {text: "hikAlam", translation: "lGmp, lJt, lAntyn"},
+      {text: "hikAl", translation: "lJt, brJt, tU SJn"},
+      {text: "hIden", translation: "sIkrHt, tU hJd, tU kHvy xHp"},
+      {text: "hez", translation: "SKp, stJl, ximpreSyn, pGtyn"},
+      {text: "helOxin", translation: "seks"},
+      {text: "helAb", translation: "tU cUz"},
+      {text: "hazUk", translation: "SKm, disgrKs"},
+      {text: "haz", translation: "left"},
+      {text: "hakAs", translation: "xevidyns, simbyl, lXgX, mAk, sJn, simptym"},
+      {text: "habuk", translation: "horizontyl"},
+      {text: "habug", translation: "SXldy"},
+      {text: "habaz", translation: "west"},
+      {text: "h", translation: "hXp, tU wont, tU wiS"},
+      {text: "gUk", translation: "twelv tU Vy pW/y xov tU"},
+      {text: "gOk", translation: "twelv"},
+      {text: "gIk", translation: "twelv tU Vy pW/y xov fO"},
+      {text: "gEk", translation: "twelv tU Vy pW/y xov FrI"},
+      {text: "gAvatAl", translation: "brOdkAst, lJvsrIt"},
+      {text: "gAmamAnem", translation: "fyrevy, xitYnyl"},
+      {text: "gAlokam", translation: "difikylt, komplikKtid"},
+      {text: "gAlAxit", translation: "xAtikyl, tekst"},
+      {text: "gAl", translation: "meni"},
+      {text: "gAkOm", translation: "deF, xynJ/ylKSyn, tU dJ, tU kil"},
+      {text: "gAkAs", translation: "tU bI bOn"},
+      {text: "gAk", translation: "twelv tU Vy pW/y xov fJv"},
+      {text: "gAhUl", translation: "sI, xXSyn"},
+      {text: "g", translation: "djUti, nysesiti, mHst, Sud, nId"},
+      {text: "vusUn", translation: "xofyn, jUZU/yl, nOmyl"},
+      {text: "duz", translation: "xHpy, xHp"},
+      {text: "duvOz", translation: "tU stGnd"},
+      {text: "duvik", translation: "SOt [vYtikyl]"},
+      {text: "dutOk", translation: "tOl"},
+      {text: "dut", translation: "tU rJz"},
+      {text: "dusOtam", translation: "fPri tKl, miFolyqi"},
+      {text: "dusOt", translation: "god"},
+      {text: "dulak", translation: "vYtikyl"},
+      {text: "dukEvil", translation: "blU"},
+      {text: "dukEvan", translation: "tU flJ"},
+      {text: "dukEv", translation: "skJ"},
+      {text: "dukEhUl", translation: "klWd"},
+      {text: "duhUl", translation: "tU flXt"},
+      {text: "duhukUs", translation: "xHpy klXVz, qGkit, kXt"},
+      {text: "dugalam", translation: "nek"},
+      {text: "dug", translation: "hed"},
+      {text: "dubaz", translation: "nOF"},
+      {text: "dOz", translation: "wP"},
+      {text: "dOxug", translation: "tUl, jUtensyl"},
+      {text: "dOmUn", translation: "wJ"},
+      {text: "dOmam", translation: "wen"},
+      {text: "dOm", translation: "wot"},
+      {text: "dOl", translation: "hU"},
+      {text: "dOg", translation: "hW"},
+      {text: "dObus", translation: "xGnimyl"},
+      {text: "damam", translation: "nW"},
+      {text: "dabaz", translation: "felX, brHVy, frend"},
+      {text: "d", translation: "tU wKt"},
+      {text: "buz", translation: "rJt"},
+      {text: "bubaz", translation: "xIst"},
+      {text: "bEsut", translation: "gud, wel, propy, kyrekt, lHk, tU xHpgrKd"},
+      {text: "bElud", translation: "bYd"},
+      {text: "bE", translation: "syprJziNli, xGksidentyli, xIvyn, xXnli, stil, [xintyqekSyn]"},
+      {text: "baz", translation: "plKs, lXkKSyn, pyziSyn, terityri"},
+      {text: "bAxit", translation: "tU fJt"},
+      {text: "bAxibam", translation: "kymoditi, prodHkt"},
+      {text: "bAxib", translation: "biznys, mYcynt, kymYSyl, tU trKd"},
+      {text: "bAb", translation: "fAVy"}
+      
+      // 填入词库：{text: "...", translation: "..."}
+    ];
+    const keyMap   = { 
+        o: { kaasa: 'o', code: 'KeyO' },
+        u: { kaasa: 'u', code: 'KeyU' },
+        e: { kaasa: 'e', code: 'KeyE' },
+        i: { kaasa: 'i', code: 'KeyI' },
+        a: { kaasa: 'a', code: 'KeyA' },
+        
+        p: { kaasa: 'O', code: 'KeyP' },
+        y: { kaasa: 'U', code: 'KeyY' },
+        w: { kaasa: 'E', code: 'KeyW' },
+        j: { kaasa: 'I', code: 'KeyJ' },
+        q: { kaasa: 'A', code: 'KeyQ' },
+        // 辅音
+        b: { kaasa: 'b', code: 'KeyB' },
+        v: { kaasa: 'v', code: 'KeyV' },
+        m: { kaasa: 'm', code: 'KeyM' },
+
+        t: { kaasa: 't', code: 'KeyT' },
+        d: { kaasa: 'd', code: 'KeyD' },
+        n: { kaasa: 'n', code: 'KeyN' },
+
+        s: { kaasa: 's', code: 'KeyS' },
+        z: { kaasa: 'z', code: 'KeyZ' },
+        l: { kaasa: 'l', code: 'KeyL' },
+
+        k: { kaasa: 'k', code: 'KeyK' },
+        g: { kaasa: 'g', code: 'KeyG' },
+        h: { kaasa: 'h', code: 'KeyH' }
+    };
+
+    // --------- Base12 转换 ---------
+    const base12Digits = ['0','1','2','3','4','5','6','7','8','9','-','='];
+    function toBase12(num) {
+      let n = Math.floor(num);
+      if (n === 0) return '0';
+      let result = '';
+      const negative = n < 0;
+      if (negative) n = -n;
+      while (n > 0) {
+        result = base12Digits[n % 12] + result;
+        n = Math.floor(n / 12);
+      }
+      return negative ? '_' + result : result;
+    }
+
+    // --------- 全局状态 ---------
+    let selectedLayout = '';
+    let timer           = ROUND_TIME;
+    let totalKeystrokes = 0;
+    let correctKeystrokes = 0;
+    let errorCount      = 0;
+    let score           = 0;
+    let usedIndices     = new Set();
+    let currentIndex    = -1;
+    let currentPos      = 0;
+    let segments = [];
+    let uppercasePending = false;
+    let pendingVowelKey = '';
+    let resetImgTimeoutId = null;
+
+    // --------- DOM 引用 ---------
+    const selectLayout = document.getElementById('select-layout');
+    const gameScreen   = document.getElementById('game-screen');
+    const keyboardEl   = document.getElementById('keyboard');
+    const currentWordEl= document.getElementById('current-word');
+    const translationEl= document.getElementById('translation');
+    const timerEl      = document.getElementById('timer-small');
+    const characterImg = document.getElementById('character');
+    const resultScreen = document.getElementById('result-screen');
+    const finalScoreEl = document.getElementById('final-score');
+    const accuracyEl   = document.getElementById('accuracy');
+    const wpmEl        = document.getElementById('wpm');
+    const rankEl   = document.getElementById('rank');
+    const restartBtn   = document.getElementById('restart');
+    const bgMusic    = document.getElementById('bg-music');
+    const sfxCorrect = document.getElementById('sfx-correct');
+    const sfxWrong   = document.getElementById('sfx-wrong');
+    const sfxDone    = document.getElementById('sfx-done');
+    const allSfx = [sfxCorrect, sfxWrong, sfxDone];
+    const countdownSound   = document.getElementById('countdown-sound');
+    const endPositiveSound = document.getElementById('end-positive-sound');
+    const resultCharacterEl = document.getElementById('result-character');
+
+    function setCharacterState(state) {
+      // 先清掉上一次没执行完的重置
+      if (resetImgTimeoutId !== null) {
+        clearTimeout(resetImgTimeoutId);
+        resetImgTimeoutId = null;
+      }
+
+      // 切 src
+      switch(state) {
+        case 'success':
+          characterImg.src = 'images/character_success.png';
+          break;
+        case 'fail':
+          characterImg.src = 'images/character_fail.png';
+          break;
+        case 'finish':
+          characterImg.src = 'images/character_finish.png';
+          break;
+        default:
+          characterImg.src = 'images/character_idle.png';
+      }
+
+      // 然后排个新任务：500ms 后还原 idle
+      resetImgTimeoutId = setTimeout(() => {
+        characterImg.src = 'images/character_idle.png';
+        resetImgTimeoutId = null;
+      }, 500);
+    }
+
+    function playSfxEffect(audioEl) {
+      // 先停掉并重置三种音效
+      allSfx.forEach(a => {
+        a.pause();
+        a.currentTime = 0;
+      });
+      // 再播放目标音效
+      audioEl.play().catch(()=>{ /* 忽略 play() Promise 拒绝 */ });
+    }
+
+    // 构建键盘
+    function buildKeyboard(layout) {
+      selectedLayout=layout;
+      keyboardEl.innerHTML = '';
+      const rows = {
+        'alternate': [
+          ['q','w','e','r','t','y','u','i','o','p'],
+          ['a','s','d','f','g','h','j','k','l',';'],
+          ['z','x','c','v','b','n','m',',','.','/']
+        ],
+        'double': [ 
+          ['q','w','e','r','t','y','u','i','o','p'],
+          ['a','s','d','f','g','h','j','k','l',';'],
+          ['z','x','c','v','b','n','m',',','.','/']
+        ]
+      };
+      rows[layout].forEach(row=>row.forEach(key=>{
+        let div=document.createElement('div');div.className='key';div.dataset.key=key;div.dataset.kaasa=keyMap[key]?.kaasa||'';
+        keyboardEl.appendChild(div);
+      }));
+      if(layout==='double'){
+        ['p','y','w','j','q'].forEach(k=>{
+          let el=keyboardEl.querySelector(`.key[data-key="${k}"]`);
+          if(el){el.dataset.kaasa='';el.classList.add('disabled');}
+        });
+      }
+    }
+
+    // 工具函数：判断元音
+    function isVowel(c) {
+      return /[aeiouAEIOU]/.test(c);
+    }
+    // 分割为段（处理 x+元音）
+    function getSegments(text) {
+      const chars = Array.from(text.normalize('NFC'));
+      const segs = [];
+      for (let i = 0; i < chars.length; i++) {
+        const c = chars[i];
+        if ((c === 'x' || c === 'X') && i + 1 < chars.length && isVowel(chars[i+1])) {
+          segs.push(c + chars[i+1]);
+          i++;
+        } else {
+          segs.push(c);
+        }
+      }
+      return segs;
+    }
+
+    // 渲染段
+    function renderWord(text) {
+      currentWordEl.innerHTML = '';
+      segments = getSegments(text);
+      segments.forEach(seg => {
+        const span = document.createElement('span');
+        span.textContent = seg;
+        currentWordEl.appendChild(span);
+      });
+    }
+
+    // 布局选择
+    selectLayout.querySelectorAll('.layout-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        buildKeyboard(opt.dataset.layout);
+        selectLayout.style.display = 'none';
+        startCountdown();
+      });
+    });
+
+    // 倒计时阶段显示游戏界面并渲染计时
+    function startCountdown() {
+      countdownSound.currentTime = 0;
+      countdownSound.play().catch(() => { /* 忽略自动播放限制 */ });
+
+      gameScreen.style.visibility = 'visible';
+      // 隐藏翻译，放大倒计时
+      translationEl.style.visibility = 'hidden';
+      timerEl.style.visibility = 'hidden';
+      currentWordEl.classList.add('countdown');
+      let cd = COUNTDOWN_TIME;
+      currentWordEl.textContent = toBase12(cd);
+      const interval = setInterval(() => {
+        cd--;
+        currentWordEl.textContent = cd > 0 ? toBase12(cd) : 'sikAs!';
+        if (cd <= 0) {
+          clearInterval(interval);
+          // 恢复样式
+          currentWordEl.classList.remove('countdown');
+          translationEl.style.visibility = '';
+          timerEl.style.visibility = '';
+          timerEl.style.display = '';
+          beginGame();
+        }
+      }, 1000);
+    }
+
+    // 游戏开始
+    let gameInterval = null;
+    function beginGame() {
+      bgMusic.currentTime = 0;
+      bgMusic.play().catch(()=>{/* 某些浏览器需要用户交互，忽略异常 */});
+      setNextWord();
+      timerEl.innerHTML = `<span class=\"timer-icon\">⏳</span><span class=\"timer-num\">${toBase12(timer)}</span>`;
+      gameInterval = setInterval(() => {
+        timer--;
+        timerEl.innerHTML = `<span class="timer-icon">⏳</span><span class="timer-num">${toBase12(timer)}</span>`;
+
+        if (timer <= 0) {
+          clearInterval(gameInterval); 
+          endGame();
+        }
+      }, 1000);
+      document.addEventListener('keydown', onKeyPress);
+    }
+
+    // 抽词
+    function setNextWord() {
+      if (usedIndices.size === wordList.length) usedIndices.clear();
+      do { currentIndex = Math.floor(Math.random() * wordList.length); }
+      while (usedIndices.has(currentIndex));
+      usedIndices.add(currentIndex);
+      currentPos = 0;
+      const { text, translation } = wordList[currentIndex];
+      renderWord(text);
+      translationEl.textContent   = translation;
+    }
+
+    // 按键处理
+    function onKeyPress(e) {
+      const key = e.key.toLowerCase();
+      totalKeystrokes++;
+      const keyEls = document.querySelectorAll(`.key[data-key='${key}']`);
+
+      // —— 如果正在等待第二次按同一个元音 —— 
+      if (uppercasePending) {
+        // 再次高亮同一个元音键
+        keyEls.forEach(el => el.classList.add('active'));
+
+        // 按对了：完成大写元音
+        if (key === pendingVowelKey) {
+          setCharacterState('success');
+          playSfxEffect(sfxCorrect);
+          correctKeystrokes++;
+          currentWordEl.children[currentPos].classList.add('correct');
+          currentPos++;
+          // 重置状态
+          uppercasePending = false;
+          // 如果单词输完换下一个
+          if (currentPos === segments.length) {
+            setCharacterState('finish');
+            playSfxEffect(sfxDone);
+            score += segments.length * BONUS_SCORE;
+            setNextWord();
+          }
+        } else {
+          // 按错了
+          setCharacterState('fail');
+          playSfxEffect(sfxWrong);
+          errorCount++; score -= PUNISH_SCORE;
+          keyEls.forEach(el => el.classList.add('wrong'));
+          // 重置标志
+          uppercasePending = false;
+        }
+
+        // 清除反馈
+        setTimeout(() => {
+          keyEls.forEach(el => el.classList.remove('active','wrong'));
+        }, 150);
+        return;
+      }
+
+      // —— AZERTY 下需要双按的“第一步”：检测到大写元音 —— 
+      const expectedSeg  = segments[currentPos];
+      const expectedChar = expectedSeg[expectedSeg.length - 1];
+      if (
+        selectedLayout === 'double' &&
+        expectedChar === expectedChar.toUpperCase() &&
+        isVowel(expectedChar)
+      ) {
+        // 如果第一次按对了小写元音键，就进入“等待第二次确认”状态
+        if (keyMap[key]?.kaasa === expectedChar.toLowerCase()) {
+          setCharacterState('success');
+          playSfxEffect(sfxCorrect);
+          correctKeystrokes++;
+          pendingVowelKey = key;            // 记录是哪一个元音键
+          uppercasePending = true;          // 切换到等待状态
+          keyEls.forEach(el => el.classList.add('active'));
+        } else {
+          // 第一步就按错
+          setCharacterState('fail');
+          playSfxEffect(sfxWrong);
+          errorCount++; score -= PUNISH_SCORE;
+          keyEls.forEach(el => el.classList.add('wrong'));
+        }
+        setTimeout(() => {
+          keyEls.forEach(el => el.classList.remove('active','wrong'));
+        }, 150);
+        return;
+      }
+
+      // —— 普通单键输入流程 —— 
+      keyEls.forEach(el => el.classList.add('active'));
+      if (keyMap[key]?.kaasa === expectedChar) {
+        setCharacterState('success');
+        playSfxEffect(sfxCorrect);
+        correctKeystrokes++;
+        currentWordEl.children[currentPos].classList.add('correct');
+        currentPos++;
+        if (currentPos === segments.length) {
+          setCharacterState('finish');
+          playSfxEffect(sfxDone);
+          score += segments.length * BONUS_SCORE;
+          setNextWord();
+        }
+      } else {
+        setCharacterState('fail');
+        playSfxEffect(sfxWrong);
+        errorCount++; score -= PUNISH_SCORE;
+        keyEls.forEach(el => el.classList.add('wrong'));
+      }
+      setTimeout(() => {
+        keyEls.forEach(el => el.classList.remove('active','wrong'));
+      }, 150);
+    }
+
+
+
+    // 游戏结束
+
+    function endGame() {
+      let charSrc;
+      if (score <= 0) {
+        charSrc = 'images/character_fail.png';
+        rankEl.textContent   = 'vOsut';
+      } else if (score < 103680) {
+        charSrc = 'images/character_idle.png';
+        rankEl.textContent   = 'vusUn';
+      } else if (score < 165888) {
+        charSrc = 'images/character_success.png';
+        rankEl.textContent   = 'bEsut';
+      } else {
+        charSrc = 'images/character_finish.png';
+        rankEl.textContent   = 'mezUl';
+      }
+      resultCharacterEl.src = charSrc;
+
+      bgMusic.pause();
+      document.removeEventListener('keydown', onKeyPress);
+
+      if (score > 0) {
+        endPositiveSound.loop = false;
+        endPositiveSound.currentTime = 0;
+        endPositiveSound.play().catch(() => {});
+      }
+
+      resultScreen.style.display = 'flex';
+      finalScoreEl.innerHTML   = `tenIl/a sUz ' <span class=\"value\">${toBase12(score)}</span>`;
+
+      const accuracy = totalKeystrokes ? (correctKeystrokes/totalKeystrokes*144).toFixed(1) : 0;
+      accuracyEl.innerHTML     = `bEsut/a sUz ' <span class=\"value\">${toBase12(accuracy)}</span>`;
+      // 速度（WPM）
+      const minutes = ROUND_TIME / 60;
+      const wpm = totalKeystrokes ? Math.round(correctKeystrokes / minutes) : 0;
+      wpmEl.innerHTML = `kUxik/a sUz ' <span class=\"value\">${toBase12(wpm)}</span>`;
+
+      const stats = [rankEl,finalScoreEl, accuracyEl, wpmEl];
+      stats.forEach(el => {
+        if (score <= 0) {
+          // setProperty 的第三个参数可以加上 'important'
+          el.style.setProperty('color', 'var(--warning)', 'important');
+        } else if (score < 103680) {
+          el.style.setProperty('color', 'white', 'important');
+        } else if (score < 165888) {
+          el.style.setProperty('color', 'var(--primary)', 'important');
+        } else {
+          el.style.setProperty('color', 'var(--secondary)', 'important');
+        }
+      });      
+    }
+
+    restartBtn.addEventListener('click', () => location.reload());
+  </script>
+</body>
+</html>
